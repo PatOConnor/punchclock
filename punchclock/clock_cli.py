@@ -27,6 +27,7 @@ def main():
                 if something_went_wrong.lower().strip() in ['y', 'yes']:
                     punch_out(conn)
 
+
 def check_for_path(db_link):
     #check if file exists
     if not path.exists(db_link):
@@ -77,6 +78,12 @@ def punch_out(conn):
     right_now = right_now - timedelta(microseconds=right_now.microsecond)
     cur.execute(sql, (right_now, False, get_last_row(conn)))
     conn.commit()
+
+def calculate_shift_length(conn):
+    pass
+
+def calculate_daily_hours_logged(conn):
+    pass
 
 if __name__=='__main__':
     main()
