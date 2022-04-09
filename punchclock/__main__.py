@@ -52,7 +52,6 @@ def get_is_working(conn):
     cur = conn.cursor()
     cur.execute(sql)
     is_working = cur.fetchall()
-    print(is_working)
     return is_working[0][0]
 
 def punch_in(conn):
