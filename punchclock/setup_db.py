@@ -4,13 +4,13 @@ from os import path
 
 
 
-def main():
+def setup_db():
     """create database file for punch clock that has one """
     sql_create_punchclock_table ="""CREATE TABLE IF NOT EXISTS shifts (
                                         id integer PRIMARY KEY,
                                         shift_start text,
                                         shift_end text,
-                                        working_now boolean
+                                        is_working boolean
                                 );"""
     db_link = path.abspath('.')+'\punchclock\data\shifts.db'
     print(db_link)
@@ -37,9 +37,5 @@ def create_table(conn, create_table_sql):
     except Error as e:
         print(e)
 
-def get_sql():
-    return 
-
-
 if __name__=='__main__':
-    main()
+    setup_db()
