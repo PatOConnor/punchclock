@@ -2,7 +2,7 @@ import sqlite3
 from sqlite3 import Error
 from os import path
 from setup_db import setup_db
-from datetime import datetime
+from datetime import datetime, timedelta
 
 def main():
     #check if file exists
@@ -70,7 +70,9 @@ def punch_out(conn):
                   is_working = ?
               WHERE id = ?'''
     cur = conn.cursor()
-    cur.execute(sql, (datetime.now(), False, get_last_row(conn)))
+    right_now = datetime.now()
+    right_now = right_now - timedelta(microseconds=right_now.microsecond)
+    cur.execute(sql, (right_now, False, get_last_row(conn)))
     conn.commit()
 
 if __name__=='__main__':
