@@ -12,7 +12,7 @@ def setup_db():
                                         shift_end text,
                                         is_working boolean
                                 );"""
-    db_link = path.abspath('.')+'\punchclock\data\shifts.db'
+    db_link = path.dirname(__file__)+'\data\shifts.db'
     print(db_link)
     conn = create_connection(db_link)
     if conn is not None:
