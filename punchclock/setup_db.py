@@ -8,9 +8,12 @@ def setup_db():
     """create database file for punch clock that has one """
     sql_create_punchclock_table ="""CREATE TABLE IF NOT EXISTS shifts (
                                         id integer PRIMARY KEY,
+                                        name text,
+                                        date text,
                                         shift_start text,
                                         shift_end text,
-                                        is_working boolean
+                                        shift_length real,
+                                        daily_hours real
                                 );"""
     db_link = path.dirname(__file__)+'\data\shifts.db'
     print(db_link)
