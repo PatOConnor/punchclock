@@ -82,25 +82,26 @@ def calculate_daily_hours_logged(conn):
     sql = '''SELECT shift_length FROM shifts WHERE date = (SELECT date FROM shifts WHERE id = (SELECT MAX(id) from shifts))'''
     cur = conn.cursor()
     cur.execute(sql)
-    total_shifts = cur.fetchall()[0]
+    total_shifts = cur.fetchall()
+    print(total_shifts)
+    for t in total_shifts:
+        print(t)
     #either [None] or [str1, str2, str3, ...]
     if not total_shifts[0]:
         return timedelta(seconds=0) 
     else:
-        date_time_list = [datetime.strptime(x, '%H:%M:%S') for x in total_shifts]
-
+        total_shifts = total_shifts[:-1]
+        date_time_list = [datetime.strptime(x[0], '%H:%M:%S') for x in total_shifts]
         sum_of_seconds = sum(x.second for x in date_time_list)
         sum_of_minutes = sum(x.minute for x in date_time_list)
         sum_of_hours = sum(x.hour for x in date_time_list)
-
         s = sum_of_seconds % 60
-        m = sum_of_seconds // 60 + sum_of_minutes % 60
-        h = sum_of_hours + m // 60
-        if m >= 60:
-            m -= 60
-            h += 1
-        
+        m = sum_of_minutes % 60
+        m += sum_of_seconds // 60
+        h = sum_of_hours
+        h += sum_of_minutes // 60        
         return timedelta(hours=h, minutes=m, seconds=s)
+
         
 if __name__=='__main__':
     main()
