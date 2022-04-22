@@ -1,0 +1,57 @@
+/* Structure of windows 
+    QMainwindow
+        ->QWidget
+            ->QLabel
+            ->QButton
+
+    
+
+
+
+*/
+
+
+/* The entire windowis 400 wide and 300 tall*/
+QMainWindow {
+    background-color: #C27571;
+}
+
+/* Container for timer and button */
+QWidget {
+    background-color: #A96762;
+}
+
+
+
+
+
+
+/* The Timer itself */
+QLabel {
+    /* section appearance */
+    background-color:#C29591;
+    border: 2px solid #C29591;
+    border-radius: 50%;
+
+    /* font appearance */
+    font-family:'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+    font-size:18pt ;
+    text-align: center;
+    color:black ;
+}
+/* The Button */
+QPushButton {
+    /* section appearance */
+    background-color: #C29591;
+    border: 2px solid #C29591;
+    border-radius: 50%;
+    height: 200px;
+    width: 300px;
+
+    /* font appearance */
+    font-family:'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+    font-size:36pt ;
+    color:black ;
+    text-align: center;
+
+}
