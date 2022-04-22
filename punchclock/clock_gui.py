@@ -1,82 +1,125 @@
-from PyQt6.QtWidgets import QApplication, QWidget, QMainWindow, QPushButton, QHBoxLayout, QLabel
-from PyQt6.QtCore import QTimer
+from PyQt6.QtWidgets import QApplication, QWidget, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit
+from PyQt6.QtCore import QTimer, Qt
 from datetime import datetime, timedelta
 from os import path
 import sys
-import clock_cli
+import clock_cli, setup_db
 
-def main():
+def main(username:str=None):
     app = QApplication(sys.argv)
-    window = MainWindow()
+    window = MainWindow(username)
     window.show()
     app.exec()
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, username:str=None):
         super().__init__()
-        self.setWindowTitle("Pat's Punch Clock")
-        self.setFixedSize(400, 150,)
+        self.setWindowTitle("Personal Punch Clock")
+        self.setFixedSize(400, 133,)
+        
         #getting style sheet   
         style_file = open(path.dirname(__file__)+'\guistyle.css')
         gui_style = style_file.read()
         self.setStyleSheet(gui_style)
+        
+        self.db_connect() #creates self.conn, self.cur
+        self.get_punch_status()
+        self.set_username_field(username=username)
+        self.set_time_clock()
+        self.set_clock_button()
+        self.set_layouts()
+
+    def db_connect(self):
         #establishing database connection
-        db_link = path.dirname(__file__)+'\data\shifts.db'
-        self.conn = clock_cli.create_connection(db_link)        
+        self.db_link = path.dirname(__file__)+'\data\shifts.db'
+        self.conn = clock_cli.create_connection(self.db_link)
+        if self.conn == None:
+            setup_db.setup_db()
+            self.db_connect()
+        self.cur = self.conn.cursor()
+
+    def get_punch_status(self):
         #getting status of punched in or punched out
-        cur = self.conn.cursor()
-        cur.execute('SELECT shift_end FROM shifts WHERE id = (SELECT MAX(id) FROM shifts)')
-        punched_out = cur.fetchall()
+        self.cur.execute('SELECT shift_end FROM shifts WHERE id = (SELECT MAX(id) FROM shifts)')
+        punched_out = self.cur.fetchall()
         #will be [] if new table, [None] if clocked in, [str] if clocked out
         if len(punched_out) == 0: 
             punched_out.append([True])#preventing indexerror
         self.punched_out = punched_out[0][0]
-
         
+    def set_username_field(self, username:str=None):
+        if not username:
+            self.cur.execute('SELECT name FROM shifts where id = (SELECT MAX(ID) FROM shifts)')
+            username = self.cur.fetchall()
+            if not username: 
+                username = 'Default'
+            else: 
+                username = username[0][0]
+    
+        self.name_input = QLineEdit()
+        self.name_input.setMaxLength(32)
+        self.name_input.setText(username)
+    
+    def set_time_clock(self):
         if not self.punched_out:
-            cur.execute('SELECT shift_start FROM shifts WHERE id = (SELECT MAX(id) FROM shifts)')
-            shift_start_time = cur.fetchall()[0][0]
+            #get time already spent working and set it to ticking timer
+            self.cur.execute('SELECT shift_start FROM shifts WHERE id = (SELECT MAX(id) FROM shifts)')
+            shift_start_time = self.cur.fetchall()[0][0]
             shift_start_time = datetime.strptime(shift_start_time, '%H:%M:%S')
             current_time = datetime.now()
             shift_amount = abs(shift_start_time - current_time)
-            self.seconds_count = shift_amount.seconds
-            print(self.seconds_count)
-            self.punch_button = QPushButton("Punch Out")
+            #int representing a large amount of seconds
+            self.seconds_count = shift_amount.seconds          
+            self.name_input.setReadOnly(True)
         else:
             self.seconds_count = 0
-            self.punch_button = QPushButton("Punch In")
-        self.punch_button.setDefault(True)
-        self.punch_button.clicked.connect(self.hit_punchclock)       
-       
-
+            self.name_input.setReadOnly(False)
         timetext = self.delta_to_string()
+
         self.timer_label = QLabel()
         self.timer_label.setGeometry(75, 100, 250, 70)
         self.timer_label.setText(str(timetext.time()))
-        
+
         timer = QTimer(self)
         timer.timeout.connect(self.show_time)
         timer.start(1000)
         
-        button_and_clock = QHBoxLayout()
-        button_and_clock.addWidget(self.timer_label)
-        button_and_clock.addWidget(self.punch_button)
-        button_widget = QWidget()
-        button_widget.setLayout(button_and_clock)
-        
-        self.setCentralWidget(button_widget)
+    def set_clock_button(self):
+        self.punch_button = QPushButton()
+        self.punch_button.setDefault(True)
+        self.punch_button.clicked.connect(self.hit_punchclock)
+        if self.punched_out:
+            self.punch_button.setText("Punch In")
+        else:
+            self.punch_button.setText("Punch Out")
+
+    def set_layouts(self):
+        button_and_text_box_layout = QVBoxLayout()
+        button_and_text_box_layout.addWidget(self.name_input)
+        button_and_text_box_layout.addWidget(self.punch_button)
+        button_and_text_box = QWidget()
+        button_and_text_box.setLayout(button_and_text_box_layout)
+        all_widgets_layout = QHBoxLayout()
+        all_widgets_layout.addWidget(self.timer_label)
+        all_widgets_layout.addWidget(button_and_text_box)
+        all_widgets = QWidget()
+        all_widgets.setLayout(all_widgets_layout)
+        self.setCentralWidget(all_widgets)
 
     def hit_punchclock(self, buttonState:bool):#button state needed for syntax
         if self.punched_out: 
-            clock_cli.punch_in(self.conn)
+            name = self.name_input.text()
+            clock_cli.punch_in(self.conn, name)
             self.punch_button.setText("Punch Out")
             self.punched_out = False
+            self.name_input.setReadOnly(True)
         else:
             clock_cli.punch_out(self.conn)
             self.punch_button.setText("Punch In")
             self.punched_out = True
             self.seconds_count = 0
-    
+            self.name_input.setReadOnly(False)
+
     def show_time(self):
         if not self.punched_out:
             self.seconds_count += 1

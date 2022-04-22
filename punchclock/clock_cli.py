@@ -3,13 +3,14 @@ from sqlite3 import Error
 from os import path, mkdir
 from datetime import datetime, timedelta
 from xmlrpc.client import DateTime
-from setup_db import setup_db
+import setup_db
 
-def main():
+def main(username:str):
+    if not username:
+        username = "Pat"
     db_link = path.dirname(__file__)+'\data\shifts.db'
     conn = create_connection(db_link)#connect to database
     if conn is None:
-        print('i am here'); input()
         if not path.exists(path.dirname(__file__)+'\data'):
             mkdir(path.dirname(__file__)+'\data')
         setup_db.setup_db()
@@ -23,7 +24,7 @@ def main():
         punched_out = punched_out[0][0]
         if punched_out:
             user_is_sure = input('you are not working. are you clocking in? ')
-            if user_is_sure.lower().strip() in ['y', 'yes']: punch_in(conn)
+            if user_is_sure.lower().strip() in ['y', 'yes']: punch_in(conn, username)
         else:
             user_is_sure = input('You are working. Clock out? ')
             if user_is_sure in ['y', 'yes']: punch_out(conn)
@@ -37,7 +38,7 @@ def create_connection(db_file):
         print(e)
     return conn
 
-def punch_in(conn):
+def punch_in(conn, username):
     """makes a new database entry for the started shift and sets is_working to true"""
     sql = ''' INSERT INTO shifts(name, date, shift_start)
               VALUES(?, ?, ?) '''
@@ -47,7 +48,7 @@ def punch_in(conn):
     current_datetime = current_datetime - timedelta(microseconds=current_datetime.microsecond)
     current_date = str(current_datetime.date())
     current_time = str(current_datetime.time())
-    cur.execute(sql, ("Pat", current_date, current_time))
+    cur.execute(sql, (username, current_date, current_time))
     conn.commit()
 
 def punch_out(conn):
@@ -87,8 +88,19 @@ def calculate_daily_hours_logged(conn):
         return timedelta(seconds=0) 
     else:
         date_time_list = [datetime.strptime(x, '%H:%M:%S') for x in total_shifts]
-        time_delta_list = [timedelta(hours=x.hour, minutes=x.minute, seconds=x.second) for x in date_time_list]
-        return timedelta(seconds=sum([x.seconds for x in time_delta_list]))
 
+        sum_of_seconds = sum(x.second for x in date_time_list)
+        sum_of_minutes = sum(x.minute for x in date_time_list)
+        sum_of_hours = sum(x.hour for x in date_time_list)
+
+        s = sum_of_seconds % 60
+        m = sum_of_seconds // 60 + sum_of_minutes % 60
+        h = sum_of_hours + m // 60
+        if m >= 60:
+            m -= 60
+            h += 1
+        
+        return timedelta(hours=h, minutes=m, seconds=s)
+        
 if __name__=='__main__':
     main()
