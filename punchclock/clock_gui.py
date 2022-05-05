@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import QApplication, QWidget, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit
 from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtGui import QIcon
 from datetime import datetime, timedelta
 from os import path
 import sys
@@ -16,6 +17,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Personal Punch Clock")
         self.setFixedSize(400, 133,)
+        self.setWindowIcon(QIcon(path.dirname(__file__)+'/punchclock_thumbnail.png'))
         
         #getting style sheet   
         style_file = open(path.dirname(__file__)+'\guistyle.css')

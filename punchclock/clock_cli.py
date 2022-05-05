@@ -83,9 +83,6 @@ def calculate_daily_hours_logged(conn):
     cur = conn.cursor()
     cur.execute(sql)
     total_shifts = cur.fetchall()
-    print(total_shifts)
-    for t in total_shifts:
-        print(t)
     #either [None] or [str1, str2, str3, ...]
     if not total_shifts[0]:
         return timedelta(seconds=0) 
