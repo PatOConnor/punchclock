@@ -1,1 +1,1 @@
-DEFAULT_NAME = "Pat"
+DEFAULT_NAME = "User"
