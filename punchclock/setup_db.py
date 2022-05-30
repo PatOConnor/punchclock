@@ -5,7 +5,7 @@ from os import path
 
 
 def setup_db():
-    """create database file for punch clock that has one """
+    """create database file in ./data """
     sql_create_punchclock_table ="""CREATE TABLE IF NOT EXISTS shifts (
                                         id integer PRIMARY KEY,
                                         name text,

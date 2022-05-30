@@ -6,30 +6,37 @@ import setup_db
 from rich import print
 from rich.layout import Layout
 from rich.panel import Panel
+from punchconfig import DEFAULT_NAME
 
 def main(username:str):
     if not username:
-        username = "Pat"
+        username = DEFAULT_NAME
     db_link = path.dirname(__file__)+'\data\shifts.db'
     conn = create_connection(db_link)#connect to database
-    if conn is None:
-        if not path.exists(path.dirname(__file__)+'\data'):
-            mkdir(path.dirname(__file__)+'\data')
-        setup_db.setup_db()
-    else:
-        cur = conn.cursor()
+    if not path.exists(path.dirname(__file__)+'\\data'):
+        mkdir(path.dirname(__file__)+'\\data')
+
+
+    cur = conn.cursor()
+    try:
         cur.execute('SELECT * FROM shifts WHERE id = (SELECT MAX(id) FROM shifts)')
-        latest_punch = cur.fetchall()[0]
-        output = rich_layout(latest_punch)
-        print(output)
-        #assigned True if there is a null value for end_time, False otherwise
-        is_punched_in = not bool(latest_punch[3])
-        user_response = input('\t')
-        if user_response.lower().strip() in ['y', 'yes']:
-            if is_punched_in: 
-                punch_out(conn)
-            else:
-                punch_in(conn, username)
+    except sqlite3.OperationalError:
+        #table does not exist
+        setup_db.setup_db()
+        punch_in(conn, username)
+        punch_out(conn)
+        cur.execute('SELECT * FROM shifts WHERE id = (SELECT MAX(id) FROM shifts)')
+    latest_punch = cur.fetchall()[0]
+    output = rich_layout(latest_punch)
+    print(output)
+    is_punched_in = True if latest_punch[4] == None else False
+    user_response = input('\t')
+    if user_response.lower().strip() in ['y', 'yes']:
+        if is_punched_in: 
+            print('here')
+            punch_out(conn)
+        else:
+            punch_in(conn, username)
 
 def create_connection(db_file):
     conn = None
@@ -78,9 +85,10 @@ def calculate_shift_length(conn, current_time):
     shift_start_time = datetime.strptime(shift_start_time, '%H:%M:%S')
     current_time = datetime.strptime(str(current_time), '%H:%M:%S')
     #day changed while working
-    if current_time <  shift_start_time:
-        current_time += 3600 * 24 #add one day to offset the subtraction
-    shift_amount = shift_start_time - current_time
+    if current_time < shift_start_time:
+        #add one day to offset the subtraction
+        current_time += timedelta(days=1)
+    shift_amount = current_time - shift_start_time
     return shift_amount
 
 def calculate_daily_hours_logged(conn):
@@ -93,7 +101,7 @@ def calculate_daily_hours_logged(conn):
         return timedelta(seconds=0) 
     else:
         total_shifts = total_shifts[:-1]
-        date_time_list = [datetime.strptime(x[0], '%H:%M:%S') for x in total_shifts if x != None]
+        date_time_list = [datetime.strptime(x[0], '%H:%M:%S') for x in total_shifts if x[0] != None]
         sum_of_seconds = sum(x.second for x in date_time_list)
         sum_of_minutes = sum(x.minute for x in date_time_list)
         sum_of_hours = sum(x.hour for x in date_time_list)
