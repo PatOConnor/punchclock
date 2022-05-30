@@ -15,10 +15,10 @@ if __name__=="__main__":
     else:
         username = None
 
-    if args.cli:
-        clock_cli.main(username)
-    else:
+    if args.gui and not args.cli:
         clock_gui.main(username)
+    else:
+        clock_cli.main(username)
         
     
 

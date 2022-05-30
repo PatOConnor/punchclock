@@ -2,8 +2,10 @@ import sqlite3
 from sqlite3 import Error
 from os import path, mkdir
 from datetime import datetime, timedelta
-from xmlrpc.client import DateTime
 import setup_db
+from rich import print
+from rich.layout import Layout
+from rich.panel import Panel
 
 def main(username:str):
     if not username:
@@ -16,18 +18,18 @@ def main(username:str):
         setup_db.setup_db()
     else:
         cur = conn.cursor()
-        cur.execute('SELECT shift_end FROM shifts WHERE id = (SELECT MAX(id) FROM shifts)')
-        punched_out = cur.fetchall()
-        #will be [] if new table, [None] if clocked in, [str] if clocked out
-        if len(punched_out) == 0: 
-            punched_out.append([True])#preventing indexerror
-        punched_out = punched_out[0][0]
-        if punched_out:
-            user_is_sure = input('you are not working. are you clocking in? ')
-            if user_is_sure.lower().strip() in ['y', 'yes']: punch_in(conn, username)
-        else:
-            user_is_sure = input('You are working. Clock out? ')
-            if user_is_sure in ['y', 'yes']: punch_out(conn)
+        cur.execute('SELECT * FROM shifts WHERE id = (SELECT MAX(id) FROM shifts)')
+        latest_punch = cur.fetchall()[0]
+        output = rich_layout(latest_punch)
+        print(output)
+        #assigned True if there is a null value for end_time, False otherwise
+        is_punched_in = not bool(latest_punch[3])
+        user_response = input('\t')
+        if user_response.lower().strip() in ['y', 'yes']:
+            if is_punched_in: 
+                punch_out(conn)
+            else:
+                punch_in(conn, username)
 
 def create_connection(db_file):
     conn = None
@@ -75,7 +77,10 @@ def calculate_shift_length(conn, current_time):
     shift_start_time = cur.fetchall()[0][0]
     shift_start_time = datetime.strptime(shift_start_time, '%H:%M:%S')
     current_time = datetime.strptime(str(current_time), '%H:%M:%S')
-    shift_amount = abs(shift_start_time - current_time)
+    #day changed while working
+    if current_time <  shift_start_time:
+        current_time += 3600 * 24 #add one day to offset the subtraction
+    shift_amount = shift_start_time - current_time
     return shift_amount
 
 def calculate_daily_hours_logged(conn):
@@ -88,7 +93,7 @@ def calculate_daily_hours_logged(conn):
         return timedelta(seconds=0) 
     else:
         total_shifts = total_shifts[:-1]
-        date_time_list = [datetime.strptime(x[0], '%H:%M:%S') for x in total_shifts]
+        date_time_list = [datetime.strptime(x[0], '%H:%M:%S') for x in total_shifts if x != None]
         sum_of_seconds = sum(x.second for x in date_time_list)
         sum_of_minutes = sum(x.minute for x in date_time_list)
         sum_of_hours = sum(x.hour for x in date_time_list)
@@ -99,6 +104,31 @@ def calculate_daily_hours_logged(conn):
         h += sum_of_minutes // 60        
         return timedelta(hours=h, minutes=m, seconds=s)
 
-        
+def rich_layout(punch_data):
+    (id, user, start_date, start_time, end_time, length, daily_length) = (punch_data)
+    punch_panel = Layout()
+    punch_panel.split_column(
+        Layout(name='Pat\'s Punch Clock is FOSS', size=1),
+        Layout(name='top_row', size=3),
+        Layout(name='bottom_row', size=3)
+    )
+    punch_panel['top_row'].split_row(
+        Layout(name='title_panel', size=18),
+        Layout(name='last_punch_panel'),
+    )
+    
+    
+    is_punched_in = True if end_time == None else False
+    last_punch = start_time if end_time == None else end_time
+    punch_panel['title_panel'].update(Panel('Punch Clock'))
+    punch_panel['last_punch_panel'].update(Panel(f'Last Punch: {last_punch}'))
+    if is_punched_in:
+        #I'm Ron Burgundy?
+        msg = 'Press \'y\' to punch out?'
+    else:
+        msg = 'Press \'y\' to punch in'
+    punch_panel['bottom_row'].update(Panel(msg))
+    return punch_panel
+
 if __name__=='__main__':
     main()
