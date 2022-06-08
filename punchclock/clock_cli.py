@@ -8,13 +8,28 @@ from rich.layout import Layout
 from rich.panel import Panel
 from punchconfig import DEFAULT_NAME
 
+days_in_month_ = {
+    1:31,
+    2:28,
+    3:31,
+    4:30,
+    5:31,
+    6:30,
+    7:31,
+    8:31,
+    9:30,
+    10:31,
+    11:30,
+    12:31
+}
+
 def main(username:str):
     if not username:
         username = DEFAULT_NAME
-    db_link = path.dirname(__file__)+'\data\shifts.db'
-    conn = create_connection(db_link)#connect to database
     if not path.exists(path.dirname(__file__)+'\\data'):
         mkdir(path.dirname(__file__)+'\\data')
+    db_link = path.dirname(__file__)+'\data\shifts.db'
+    conn = create_connection(db_link)#connect to database
 
 
     cur = conn.cursor()
@@ -77,18 +92,48 @@ def punch_out(conn):
     cur.execute(sql, (str(current_time), str(shift_length), str(daily_hours)))
     conn.commit()
 
+"""calculates difference between two dates given as [yr,mo,day], all ints"""
+def calculate_date_shift(early_date:list[int],later_date:list[int])->int:
+    #probably gonna replace this with a builtin on refactor
+    #days between them
+    date_shift = later_date[2] - early_date[2]
+    month_shift = later_date[1] - early_date[1]
+    #god forbid i work through new years
+    year_shift = abs(later_date[0] - early_date[0])
+    month_shift += year_shift * 12
+    while month_shift > 0:
+        #e.g. month=5, date_shift += 31
+        date_shift += days_in_month_[early_date[1]]
+        #leap year
+        if early_date[1] == 2 and early_date[0] % 4 == 0:
+            date_shift += 1
+        early_date[1] += 1
+        #wrap months around if i work for months on end
+        if early_date[1] > 12:
+            early_date[1] = 1
+            early_date[0] += 1
+        month_shift -= 1
+    return date_shift
+
+
+
 def calculate_shift_length(conn, current_time):
-    sql = '''SELECT shift_start FROM shifts WHERE id = (SELECT MAX(id) from shifts)'''
+    sql = '''SELECT date, shift_start FROM shifts WHERE id = (SELECT MAX(id) from shifts)'''
     cur = conn.cursor()
     cur.execute(sql)
-    shift_start_time = cur.fetchall()[0][0]
+    shift_data = cur.fetchall()[0]
+
+    shift_start_time = shift_data[0]
     shift_start_time = datetime.strptime(shift_start_time, '%H:%M:%S')
     current_time = datetime.strptime(str(current_time), '%H:%M:%S')
-    #day changed while working
-    if current_time < shift_start_time:
-        #add one day to offset the subtraction
-        current_time += timedelta(days=1)
     shift_amount = current_time - shift_start_time
+    start_date = shift_data[0].split('-')
+    current_date =  datetime.today()[0:3]
+    date_shift = calculate_date_shift(start_date, current_date)
+    #day changed while working
+    while date_shift > 0:
+        #add one day to offset the subtraction
+        shift_amount += timedelta(days=1)
     return shift_amount
 
 def calculate_daily_hours_logged(conn):
@@ -131,10 +176,9 @@ def rich_layout(punch_data):
     punch_panel['title_panel'].update(Panel('Punch Clock'))
     punch_panel['last_punch_panel'].update(Panel(f'Last Punch: {last_punch}'))
     if is_punched_in:
-        #I'm Ron Burgundy?
-        msg = 'Press \'y\' to punch out?'
+        msg = 'Enter \'y\' to punch out'
     else:
-        msg = 'Press \'y\' to punch in'
+        msg = 'Enter \'y\' to punch in'
     punch_panel['bottom_row'].update(Panel(msg))
     return punch_panel
 
